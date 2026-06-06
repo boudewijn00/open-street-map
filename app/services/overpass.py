@@ -3,7 +3,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-DEFAULT_URL = "http://127.0.0.1:12345/api/interpreter"
+DEFAULT_URL = "http://100.93.95.88:12345/api/interpreter"
 DEFAULT_LIMIT = 5
 
 
@@ -11,16 +11,27 @@ class OverpassService:
     def __init__(self, url: str = DEFAULT_URL):
         self.url = url
 
-    def build_query(self, key: str, value: str, limit: int = DEFAULT_LIMIT) -> str:
+    def build_query(self, key: str, value: str, limit: int = DEFAULT_LIMIT, coords: dict | None = None) -> str:
+        if coords:
+            lat = coords["lat"]
+            lon = coords["lon"]
+            
+            return "\n".join([
+                "[out:json];",
+                f'node["{key}"="{value}"](around:{limit},{lat},{lon});',
+                f"out {limit};",
+            ])
+        
         return "\n".join([
             "[out:json];",
             f'node["{key}"="{value}"];',
             f"out {limit};",
         ])
 
-    def search(self, key: str, value: str, limit: int = DEFAULT_LIMIT) -> dict:
-        query = self.build_query(key, value, limit)
+    def search(self, key: str, value: str, limit: int = DEFAULT_LIMIT, coords: dict | None = None) -> dict:
+        query = self.build_query(key, value, limit, coords)
         raw = self._fetch(query)
+        
         return json.loads(raw)
 
     def _fetch(self, query: str) -> str:

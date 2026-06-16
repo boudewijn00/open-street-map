@@ -1,38 +1,55 @@
+import hashlib
 import json
-import urllib.error
+from linecache import cache
+from platform import node
 import urllib.parse
 import urllib.request
 
-DEFAULT_URL = "http://100.93.95.88:12345/api/interpreter"
-DEFAULT_LIMIT = 5
+DEFAULT_URL = "https://overpass.theridiid.net/api/interpreter"
+DEFAULT_LIMIT = 50
 
 
 class OverpassService:
     def __init__(self, url: str = DEFAULT_URL):
         self.url = url
 
-    def build_query(self, key: str, value: str, limit: int = DEFAULT_LIMIT, coords: dict | None = None) -> str:
+    def build_query(self, tags: list[tuple[str, str]], limit: int = DEFAULT_LIMIT, coords: dict | None = None, around: int = 10000) -> str:
+        filters = "".join(
+                f'["{key}"="{value}"]'
+                for key, value in tags
+            )
+        
         if coords:
             lat = coords["lat"]
             lon = coords["lon"]
             
-            return "\n".join([
-                "[out:json];",
-                f'node["{key}"="{value}"](around:{limit},{lat},{lon});',
-                f"out {limit};",
-            ])
+            return (
+                f"[out:json];\n"
+                f"nwr{filters}"
+                f"(around:{around},{lat},{lon});\n"
+                f"out;"
+            )
         
-        return "\n".join([
-            "[out:json];",
-            f'node["{key}"="{value}"];',
-            f"out {limit};",
-        ])
+        return (
+            f"[out:json];\n"
+            f"nwr{filters};\n"
+            f"out;"
+        )
 
-    def search(self, key: str, value: str, limit: int = DEFAULT_LIMIT, coords: dict | None = None) -> dict:
-        query = self.build_query(key, value, limit, coords)
-        raw = self._fetch(query)
+    def search(self, tags: list[tuple[str, str]], limit: int = DEFAULT_LIMIT, enable_cache: bool = True, coords: dict | None = None, around: int = 10000) -> dict:
+        cache_key = hashlib.sha256(f"{tags}:{limit}:{coords}:{around}".encode()).hexdigest()
+
+        if enable_cache and cache_key in cache:
+            return cache[cache_key]
         
-        return json.loads(raw)
+        query = self.build_query(tags, limit, coords, around)
+        
+        raw = self._fetch(query)
+        result = json.loads(raw)
+        if enable_cache:
+            cache[cache_key] = result
+        
+        return result
 
     def _fetch(self, query: str) -> str:
         body = urllib.parse.urlencode({"data": query}).encode("utf-8")

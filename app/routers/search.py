@@ -15,10 +15,12 @@ geocode = GeocodeService()
 def search(payload: SearchRequest) -> dict:
     try:
         coords = None
+        around = None
         if payload.location:
             coords = geocode.geocode(payload.location)
+            around = payload.around
         
-        return overpass.search(payload.key, payload.value, payload.limit, coords)
+        return overpass.search(payload.tags, payload.limit, payload.cache, coords, around)
     except urllib.error.HTTPError as err:
         body = err.read().decode("utf-8", errors="replace")
         detail = body.strip() or f"Overpass HTTP error: {err.code} {err.reason}"

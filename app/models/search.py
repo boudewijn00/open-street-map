@@ -4,10 +4,11 @@ from app.services.overpass import DEFAULT_LIMIT
 
 
 class SearchRequest(BaseModel):
-    key: str
-    value: str
+    tags: list[tuple[str, str]]
     location: str | None = None
     limit: int = DEFAULT_LIMIT
+    around: int = 10000
+    cache: bool = True
 
 
 class GeocodeRequest(BaseModel):

@@ -2,7 +2,7 @@ import urllib.error
 
 from fastapi import APIRouter, HTTPException
 
-from app.models.search import SearchRequest, GeocodeRequest, GeocodeResponse
+from app.models.search import SearchRequest, GeocodeRequest, GeocodeResponse, FeatureCollection
 from app.services.overpass import OverpassService
 from app.services.geocode import GeocodeService
 
@@ -11,8 +11,8 @@ overpass = OverpassService()
 geocode = GeocodeService()
 
 
-@router.post("/search")
-def search(payload: SearchRequest) -> dict:
+@router.post("/search", response_model=FeatureCollection)
+def search(payload: SearchRequest) -> FeatureCollection:
     try:
         coords = None
         around = None
@@ -20,7 +20,9 @@ def search(payload: SearchRequest) -> dict:
             coords = geocode.geocode(payload.location)
             around = payload.around
         
-        return overpass.search(payload.tags, payload.limit, payload.cache, coords, around)
+        feature_collection = overpass.search(payload.tags, payload.limit, payload.cache, coords, around)
+        
+        return feature_collection
     except urllib.error.HTTPError as err:
         body = err.read().decode("utf-8", errors="replace")
         detail = body.strip() or f"Overpass HTTP error: {err.code} {err.reason}"

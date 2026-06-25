@@ -1,0 +1,34 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Copy SSH key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ./id_rsa
+          chmod 600 ./id_rsa
+
+      - name: Copy files to server
+        run: scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ./id_rsa ./* root@"${{ secrets.SERVER_IP }}":/root/overpass-api-proxy
+
+      - name: Install requirements and run fastapi.service
+        run: |
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ./id_rsa root@"${{ secrets.SERVER_IP }}" << 'EOF'
+          set -e
+          cd /root/overpass-api-proxy
+          python3.13 -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          systemctl daemon-reload
+          systemctl restart fastapi.service || systemctl start fastapi.service
+          EOF
